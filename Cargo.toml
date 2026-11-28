@@ -23,7 +23,7 @@ rmcp = {
 # SSH + SFTP (pure Rust, no C dependencies)
 # ring feature avoids the aws-lc-rs C build dependency (russh's default backend)
 russh = { version = "0.65", default-features = false, features = ["des", "flate2", "ring", "rsa"] }
-russh-sftp = "3.0"
+russh-sftp = "4.0"
 
 # Telnet/Serial transports for interactive console management
 serialport = "4"
