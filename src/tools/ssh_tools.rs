@@ -114,7 +114,9 @@ struct SshDisconnectParams {
 
 #[tool_router(router = ssh_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "Connect to a remote server via SSH. Returns a connectionId used in all subsequent commands. `host` may be a Host alias from ~/.ssh/config: HostName/User/Port/IdentityFile come from the local `ssh -G`, so username defaults to the local account exactly as with `ssh`. Authenticates with password, private key, or ssh-agent (tried in that order).")]
+    #[tool(
+        description = "Connect to a remote server via SSH. Returns a connectionId used in all subsequent commands. `host` may be a Host alias from ~/.ssh/config: HostName/User/Port/IdentityFile come from the local `ssh -G`, so username defaults to the local account exactly as with `ssh`. Authenticates with password, private key, or ssh-agent (tried in that order)."
+    )]
     async fn ssh_connect(
         &self,
         Parameters(params): Parameters<SshConnectParams>,
@@ -191,18 +193,16 @@ impl SshConnectServer {
         ))]))
     }
 
-    #[tool(description = "Execute a shell command on the remote server. Returns exit code, stdout, and stderr. Use cwd to set the working directory.")]
+    #[tool(
+        description = "Execute a shell command on the remote server. Returns exit code, stdout, and stderr. Use cwd to set the working directory."
+    )]
     async fn ssh_exec(
         &self,
         Parameters(params): Parameters<SshExecParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let conn_arc = self
-            .pool
-            .get(&params.connection_id)
-            .await
-            .ok_or_else(|| {
-                invalid_err(format!("No active connection: '{}'", params.connection_id))
-            })?;
+        let conn_arc = self.pool.get(&params.connection_id).await.ok_or_else(|| {
+            invalid_err(format!("No active connection: '{}'", params.connection_id))
+        })?;
 
         let command = match &params.cwd {
             Some(cwd) => format!("cd {} && {}", cwd, params.command),
@@ -210,10 +210,9 @@ impl SshConnectServer {
         };
 
         let mut conn = conn_arc.lock().await;
-        let (exit_code, stdout, stderr) =
-            exec_command(&mut conn.handle, &command, params.timeout)
-                .await
-                .map_err(|e| internal_err(e.to_string()))?;
+        let (exit_code, stdout, stderr) = exec_command(&mut conn.handle, &command, params.timeout)
+            .await
+            .map_err(|e| internal_err(e.to_string()))?;
 
         Ok(CallToolResult::success(vec![ContentBlock::text(format!(
             "exit_code: {}\nstdout:\n{}\nstderr:\n{}",
@@ -226,13 +225,9 @@ impl SshConnectServer {
         &self,
         Parameters(params): Parameters<SshUploadParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let conn_arc = self
-            .pool
-            .get(&params.connection_id)
-            .await
-            .ok_or_else(|| {
-                invalid_err(format!("No active connection: '{}'", params.connection_id))
-            })?;
+        let conn_arc = self.pool.get(&params.connection_id).await.ok_or_else(|| {
+            invalid_err(format!("No active connection: '{}'", params.connection_id))
+        })?;
 
         let local_data = tokio::fs::read(&params.local_path)
             .await
@@ -241,10 +236,12 @@ impl SshConnectServer {
         let mut conn = conn_arc.lock().await;
         let sftp = open_sftp(&mut conn.handle).await?;
 
-        let mut remote_file = sftp
-            .create(&params.remote_path)
-            .await
-            .map_err(|e| internal_err(format!("Cannot create remote '{}': {}", params.remote_path, e)))?;
+        let mut remote_file = sftp.create(&params.remote_path).await.map_err(|e| {
+            internal_err(format!(
+                "Cannot create remote '{}': {}",
+                params.remote_path, e
+            ))
+        })?;
 
         remote_file
             .write_all(&local_data)
@@ -263,26 +260,26 @@ impl SshConnectServer {
         ))]))
     }
 
-    #[tool(description = "Download a file from the remote server via SFTP. Creates local parent directories as needed.")]
+    #[tool(
+        description = "Download a file from the remote server via SFTP. Creates local parent directories as needed."
+    )]
     async fn ssh_download_file(
         &self,
         Parameters(params): Parameters<SshDownloadParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let conn_arc = self
-            .pool
-            .get(&params.connection_id)
-            .await
-            .ok_or_else(|| {
-                invalid_err(format!("No active connection: '{}'", params.connection_id))
-            })?;
+        let conn_arc = self.pool.get(&params.connection_id).await.ok_or_else(|| {
+            invalid_err(format!("No active connection: '{}'", params.connection_id))
+        })?;
 
         let mut conn = conn_arc.lock().await;
         let sftp = open_sftp(&mut conn.handle).await?;
 
-        let mut remote_file = sftp
-            .open(&params.remote_path)
-            .await
-            .map_err(|e| internal_err(format!("Cannot open remote '{}': {}", params.remote_path, e)))?;
+        let mut remote_file = sftp.open(&params.remote_path).await.map_err(|e| {
+            internal_err(format!(
+                "Cannot open remote '{}': {}",
+                params.remote_path, e
+            ))
+        })?;
 
         let mut buf = Vec::new();
         remote_file
@@ -291,11 +288,12 @@ impl SshConnectServer {
             .map_err(|e| internal_err(format!("Read failed: {e}")))?;
 
         if let Some(parent) = Path::new(&params.local_path).parent()
-            && !parent.as_os_str().is_empty() {
-                tokio::fs::create_dir_all(parent)
-                    .await
-                    .map_err(|e| internal_err(format!("Cannot create local dir: {e}")))?;
-            }
+            && !parent.as_os_str().is_empty()
+        {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| internal_err(format!("Cannot create local dir: {e}")))?;
+        }
 
         tokio::fs::write(&params.local_path, &buf)
             .await
@@ -309,18 +307,16 @@ impl SshConnectServer {
         ))]))
     }
 
-    #[tool(description = "List files and directories in a remote path via SFTP. Returns name, type, and size for each entry.")]
+    #[tool(
+        description = "List files and directories in a remote path via SFTP. Returns name, type, and size for each entry."
+    )]
     async fn ssh_list_files(
         &self,
         Parameters(params): Parameters<SshListParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let conn_arc = self
-            .pool
-            .get(&params.connection_id)
-            .await
-            .ok_or_else(|| {
-                invalid_err(format!("No active connection: '{}'", params.connection_id))
-            })?;
+        let conn_arc = self.pool.get(&params.connection_id).await.ok_or_else(|| {
+            invalid_err(format!("No active connection: '{}'", params.connection_id))
+        })?;
 
         let mut conn = conn_arc.lock().await;
         let sftp = open_sftp(&mut conn.handle).await?;
@@ -338,7 +334,9 @@ impl SshConnectServer {
             lines.push(format!("  {} {:>12}  {}", kind, size, entry.file_name()));
         }
 
-        Ok(CallToolResult::success(vec![ContentBlock::text(lines.join("\n"))]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            lines.join("\n"),
+        )]))
     }
 
     #[tool(description = "Disconnect and close an active SSH connection.")]

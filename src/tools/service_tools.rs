@@ -67,7 +67,9 @@ struct NginxConfigParams {
 
 #[tool_router(router = service_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "Control any systemd service. action: start | stop | restart | reload | status | enable | disable | is-active | is-enabled | logs. Examples: mysql, php8.2-fpm, redis-server, cron, nginx.")]
+    #[tool(
+        description = "Control any systemd service. action: start | stop | restart | reload | status | enable | disable | is-active | is-enabled | logs. Examples: mysql, php8.2-fpm, redis-server, cron, nginx."
+    )]
     async fn ubuntu_service_control(
         &self,
         Parameters(params): Parameters<ServiceControlParams>,
@@ -86,14 +88,16 @@ impl SshConnectServer {
             )
         } else {
             match params.action.as_str() {
-                "start" | "stop" | "restart" | "reload" | "status"
-                | "enable" | "disable" | "is-active" | "is-enabled" => {
+                "start" | "stop" | "restart" | "reload" | "status" | "enable" | "disable"
+                | "is-active" | "is-enabled" => {
                     format!("{sudo}systemctl {} {}", params.action, svc)
                 }
-                other => return Err(invalid_err(format!(
-                    "Unknown action '{}'. Use: start | stop | restart | reload | status | enable | disable | is-active | is-enabled | logs",
-                    other
-                ))),
+                other => {
+                    return Err(invalid_err(format!(
+                        "Unknown action '{}'. Use: start | stop | restart | reload | status | enable | disable | is-active | is-enabled | logs",
+                        other
+                    )));
+                }
             }
         };
 
@@ -106,11 +110,17 @@ impl SshConnectServer {
             "exit_code: {}\n{}{}",
             exit_code,
             stdout,
-            if stderr.is_empty() { String::new() } else { format!("\n[stderr]\n{}", stderr) }
+            if stderr.is_empty() {
+                String::new()
+            } else {
+                format!("\n[stderr]\n{}", stderr)
+            }
         ))]))
     }
 
-    #[tool(description = "Manage nginx virtual host configs. action: list (sites-available/enabled) | enable | disable | view | write (via SFTP) | test. 'site' is the filename in sites-available e.g. 'orchis.ai'.")]
+    #[tool(
+        description = "Manage nginx virtual host configs. action: list (sites-available/enabled) | enable | disable | view | write (via SFTP) | test. 'site' is the filename in sites-available e.g. 'orchis.ai'."
+    )]
     async fn vps_nginx_config(
         &self,
         Parameters(params): Parameters<NginxConfigParams>,
@@ -123,7 +133,9 @@ impl SshConnectServer {
 
         // Helpers that require a site name
         let require_site = |p: &NginxConfigParams| -> Result<String, ErrorData> {
-            p.site.clone().ok_or_else(|| invalid_err("'site' is required for this action"))
+            p.site
+                .clone()
+                .ok_or_else(|| invalid_err("'site' is required for this action"))
         };
 
         match params.action.as_str() {
@@ -133,7 +145,11 @@ impl SshConnectServer {
                 let (_, stdout, stderr) = exec_command(&mut conn.handle, cmd, 15_000)
                     .await
                     .map_err(|e| internal_err(e.to_string()))?;
-                let out = if stderr.is_empty() { stdout } else { format!("{}\n[stderr]\n{}", stdout, stderr) };
+                let out = if stderr.is_empty() {
+                    stdout
+                } else {
+                    format!("{}\n[stderr]\n{}", stdout, stderr)
+                };
                 Ok(CallToolResult::success(vec![ContentBlock::text(out)]))
             }
 
@@ -151,8 +167,13 @@ impl SshConnectServer {
                     .map_err(|e| internal_err(e.to_string()))?;
                 Ok(CallToolResult::success(vec![ContentBlock::text(format!(
                     "exit_code: {}\n{}{}",
-                    exit_code, stdout,
-                    if stderr.is_empty() { String::new() } else { format!("\n[stderr]\n{}", stderr) }
+                    exit_code,
+                    stdout,
+                    if stderr.is_empty() {
+                        String::new()
+                    } else {
+                        format!("\n[stderr]\n{}", stderr)
+                    }
                 ))]))
             }
 
@@ -169,29 +190,41 @@ impl SshConnectServer {
                     .map_err(|e| internal_err(e.to_string()))?;
                 Ok(CallToolResult::success(vec![ContentBlock::text(format!(
                     "exit_code: {}\n{}{}",
-                    exit_code, stdout,
-                    if stderr.is_empty() { String::new() } else { format!("\n[stderr]\n{}", stderr) }
+                    exit_code,
+                    stdout,
+                    if stderr.is_empty() {
+                        String::new()
+                    } else {
+                        format!("\n[stderr]\n{}", stderr)
+                    }
                 ))]))
             }
 
             "view" => {
                 let site = require_site(&params)?;
-                let cmd = format!("cat {}", shell_quote(&format!("/etc/nginx/sites-available/{site}")));
+                let cmd = format!(
+                    "cat {}",
+                    shell_quote(&format!("/etc/nginx/sites-available/{site}"))
+                );
                 let mut conn = conn_arc.lock().await;
                 let (exit_code, stdout, stderr) = exec_command(&mut conn.handle, &cmd, 15_000)
                     .await
                     .map_err(|e| internal_err(e.to_string()))?;
                 if exit_code != 0 && stdout.is_empty() {
-                    return Err(internal_err(format!("Cannot read site '{}': {}", site, stderr)));
+                    return Err(internal_err(format!(
+                        "Cannot read site '{}': {}",
+                        site, stderr
+                    )));
                 }
                 Ok(CallToolResult::success(vec![ContentBlock::text(stdout)]))
             }
 
             "write" => {
                 let site = require_site(&params)?;
-                let config = params.config.as_deref().ok_or_else(|| {
-                    invalid_err("'config' is required for write action")
-                })?;
+                let config = params
+                    .config
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'config' is required for write action"))?;
 
                 let remote_path = format!("/etc/nginx/sites-available/{}", site);
                 let tmp_path = format!("/tmp/.nginx_cfg_{}", site);
@@ -200,11 +233,15 @@ impl SshConnectServer {
                 let mut conn = conn_arc.lock().await;
 
                 let sftp = open_sftp(&mut conn.handle).await?;
-                let mut f = sftp.create(&tmp_path).await
+                let mut f = sftp
+                    .create(&tmp_path)
+                    .await
                     .map_err(|e| internal_err(format!("Cannot create temp file: {e}")))?;
-                f.write_all(config.as_bytes()).await
+                f.write_all(config.as_bytes())
+                    .await
                     .map_err(|e| internal_err(format!("Write failed: {e}")))?;
-                f.shutdown().await
+                f.shutdown()
+                    .await
                     .map_err(|e| internal_err(format!("Flush failed: {e}")))?;
                 drop(sftp);
 
@@ -233,14 +270,24 @@ impl SshConnectServer {
                 let (exit_code, stdout, stderr) = exec_command(&mut conn.handle, &cmd, 15_000)
                     .await
                     .map_err(|e| internal_err(e.to_string()))?;
-                let combined = format!("{}{}", stdout, if stderr.is_empty() { String::new() } else { format!("\n{}", stderr) });
+                let combined = format!(
+                    "{}{}",
+                    stdout,
+                    if stderr.is_empty() {
+                        String::new()
+                    } else {
+                        format!("\n{}", stderr)
+                    }
+                );
                 Ok(CallToolResult::success(vec![ContentBlock::text(format!(
-                    "exit_code: {}\n{}", exit_code, combined
+                    "exit_code: {}\n{}",
+                    exit_code, combined
                 ))]))
             }
 
             other => Err(invalid_err(format!(
-                "Unknown action '{}'. Use: list | enable | disable | view | write | test", other
+                "Unknown action '{}'. Use: list | enable | disable | view | write | test",
+                other
             ))),
         }
     }

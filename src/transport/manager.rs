@@ -31,7 +31,9 @@ pub struct SessionInfo {
 
 impl SessionManager {
     pub fn new() -> Self {
-        Self { sessions: Arc::new(Mutex::new(HashMap::new())) }
+        Self {
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 
     /// Register a new session. Errors if the name is already in use.

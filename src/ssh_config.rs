@@ -90,11 +90,17 @@ async fn ssh_g(alias: &str, config: Option<&Path>) -> HostDefaults {
                 stderr = %String::from_utf8_lossy(&out.stderr).trim(),
                 "ssh -G failed; connecting with explicit arguments only"
             );
-            return HostDefaults { username: local_username(), ..Default::default() };
+            return HostDefaults {
+                username: local_username(),
+                ..Default::default()
+            };
         }
         Err(e) => {
             tracing::debug!(alias, error = %e, "no ssh binary; skipping client-config lookup");
-            return HostDefaults { username: local_username(), ..Default::default() };
+            return HostDefaults {
+                username: local_username(),
+                ..Default::default()
+            };
         }
     };
 
@@ -119,7 +125,10 @@ async fn ssh_g(alias: &str, config: Option<&Path>) -> HostDefaults {
 
 /// Expand a leading `~/`; russh opens these paths itself and does no globbing.
 fn expand_home(path: &str) -> PathBuf {
-    match path.strip_prefix("~/").and_then(|rest| Some((dirs::home_dir()?, rest))) {
+    match path
+        .strip_prefix("~/")
+        .and_then(|rest| Some((dirs::home_dir()?, rest)))
+    {
         Some((home, rest)) => home.join(rest),
         None => PathBuf::from(path),
     }
@@ -215,7 +224,10 @@ pub fn authenticate<'a, H: Handler>(
                  ssh-agent, or set IdentityFile for this host in ~/.ssh/config"
             )
         } else {
-            format!("authentication failed for user '{user}' ({})", tried.join("; "))
+            format!(
+                "authentication failed for user '{user}' ({})",
+                tried.join("; ")
+            )
         })
     })
 }
@@ -292,9 +304,8 @@ async fn agent_auth<H: Handler>(
         // takes the signer's `auth_sign` future, whose lifetime is
         // higher-ranked, and rustc cannot otherwise prove the enclosing tool
         // handler future is `Send` (rust#102211).
-        let attempt: Pin<Box<dyn Future<Output = _> + Send>> = Box::pin(
-            handle.authenticate_publickey_with(user, public_key, hash_alg, &mut agent),
-        );
+        let attempt: Pin<Box<dyn Future<Output = _> + Send>> =
+            Box::pin(handle.authenticate_publickey_with(user, public_key, hash_alg, &mut agent));
         match attempt.await {
             Ok(AuthResult::Success) => return Ok(Some(comment)),
             Ok(_) => rejected += 1,
@@ -302,7 +313,10 @@ async fn agent_auth<H: Handler>(
         }
     }
 
-    Err(format!("{rejected} identit{} rejected", if rejected == 1 { "y" } else { "ies" }))
+    Err(format!(
+        "{rejected} identit{} rejected",
+        if rejected == 1 { "y" } else { "ies" }
+    ))
 }
 
 #[cfg(unix)]
@@ -367,7 +381,10 @@ mod tests {
     /// The config tests drive the real `ssh` binary; a machine without one
     /// exercises only the fallback path (covered by its own test).
     fn ssh_missing() -> bool {
-        std::process::Command::new("ssh").arg("-V").output().is_err()
+        std::process::Command::new("ssh")
+            .arg("-V")
+            .output()
+            .is_err()
     }
 
     #[tokio::test]
@@ -391,7 +408,11 @@ mod tests {
         // ~ must be expanded: russh opens the path itself, and ssh -G prints
         // identity files unexpanded.
         let key = resolved.identity_files.first().unwrap();
-        assert!(key.is_absolute(), "identity file not expanded: {}", key.display());
+        assert!(
+            key.is_absolute(),
+            "identity file not expanded: {}",
+            key.display()
+        );
         assert!(key.ends_with(".ssh/id_deploy"));
     }
 

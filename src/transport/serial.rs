@@ -46,7 +46,10 @@ impl SerialTransport {
             };
             // Nudge and read a short reply.
             let _ = t.write_all(b"\r").await;
-            let reply = t.read_chunk(Duration::from_millis(600)).await.unwrap_or_default();
+            let reply = t
+                .read_chunk(Duration::from_millis(600))
+                .await
+                .unwrap_or_default();
             if reply.is_empty() {
                 continue; // device silent at this rate; try the next
             }
@@ -81,8 +84,8 @@ impl Transport for SerialTransport {
     async fn read_chunk(&mut self, timeout: Duration) -> ToolResult<Vec<u8>> {
         let mut buf = [0u8; 4096];
         match tokio::time::timeout(timeout, self.stream.read(&mut buf)).await {
-            Err(_) => Ok(Vec::new()),         // idle tick — no data this slice
-            Ok(Ok(0)) => Ok(Vec::new()),      // nothing available
+            Err(_) => Ok(Vec::new()),    // idle tick — no data this slice
+            Ok(Ok(0)) => Ok(Vec::new()), // nothing available
             Ok(Ok(n)) => Ok(buf[..n].to_vec()),
             Ok(Err(e)) => Err(ToolError::internal(format!("serial read: {e}"))),
         }

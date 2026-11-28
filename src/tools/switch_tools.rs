@@ -5,10 +5,7 @@
 //! `enable` primitives and `upload_config`) rather than rigid tools.
 
 use rmcp::{
-    ErrorData,
-    handler::server::wrapper::Parameters,
-    model::CallToolResult,
-    tool, tool_router,
+    ErrorData, handler::server::wrapper::Parameters, model::CallToolResult, tool, tool_router,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -80,7 +77,9 @@ pub struct NetworkDiagnosticsParams {
 
 #[tool_router(router = switch_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "Back up a device's configuration by running a show-config command on an interactive session (default 'show running-config'; paging is auto-handled). Optionally writes the captured text to a local file. Returns { ok, bytes, saved_to, output }; if the device rejects the command (e.g. needs `enable`), ok is false, error_detected names the rejection, and nothing is saved.")]
+    #[tool(
+        description = "Back up a device's configuration by running a show-config command on an interactive session (default 'show running-config'; paging is auto-handled). Optionally writes the captured text to a local file. Returns { ok, bytes, saved_to, output }; if the device rejects the command (e.g. needs `enable`), ok is false, error_detected names the rejection, and nothing is saved."
+    )]
     async fn switch_backup_config(
         &self,
         Parameters(params): Parameters<BackupConfigParams>,
@@ -144,7 +143,9 @@ impl SshConnectServer {
         })))
     }
 
-    #[tool(description = "Run a network diagnostic (ping or traceroute) from the device against a target host/IP, over an interactive session. Append vendor-specific options via `args`.")]
+    #[tool(
+        description = "Run a network diagnostic (ping or traceroute) from the device against a target host/IP, over an interactive session. Append vendor-specific options via `args`."
+    )]
     async fn switch_network_diagnostics(
         &self,
         Parameters(params): Parameters<NetworkDiagnosticsParams>,
@@ -161,10 +162,11 @@ impl SshConnectServer {
         };
         let mut command = format!("{verb} {}", params.target);
         if let Some(extra) = &params.args
-            && !extra.trim().is_empty() {
-                command.push(' ');
-                command.push_str(extra.trim());
-            }
+            && !extra.trim().is_empty()
+        {
+            command.push(' ');
+            command.push_str(extra.trim());
+        }
         let timeout = Duration::from_secs(params.timeout_secs.unwrap_or(60));
 
         let handle = self.sessions.get(&params.session).await?;
@@ -208,8 +210,15 @@ mod tests {
     #[test]
     fn passes_real_output() {
         // A normal config / ping result must NOT be flagged.
-        assert!(detect_cli_error("Building configuration...\n!\nversion 15.2\nhostname SW1").is_none());
+        assert!(
+            detect_cli_error("Building configuration...\n!\nversion 15.2\nhostname SW1").is_none()
+        );
         // 0% ping success is a valid result, not a CLI error.
-        assert!(detect_cli_error("Sending 5, 100-byte ICMP Echos\n.....\nSuccess rate is 0 percent (0/5)").is_none());
+        assert!(
+            detect_cli_error(
+                "Sending 5, 100-byte ICMP Echos\n.....\nSuccess rate is 0 percent (0/5)"
+            )
+            .is_none()
+        );
     }
 }

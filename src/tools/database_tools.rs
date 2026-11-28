@@ -48,7 +48,9 @@ struct MysqlParams {
 
 #[tool_router(router = database_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "MySQL/MariaDB management. action: list-databases | list-tables | query | backup | restore | create-db | drop-db. Password is passed securely via MYSQL_PWD env var (not exposed in ps).")]
+    #[tool(
+        description = "MySQL/MariaDB management. action: list-databases | list-tables | query | backup | restore | create-db | drop-db. Password is passed securely via MYSQL_PWD env var (not exposed in ps)."
+    )]
     async fn ubuntu_mysql(
         &self,
         Parameters(params): Parameters<MysqlParams>,
@@ -66,10 +68,16 @@ impl SshConnectServer {
 
         // Helper closures
         let require_db = || {
-            params.database.as_deref().ok_or_else(|| invalid_err("'database' required for this action"))
+            params
+                .database
+                .as_deref()
+                .ok_or_else(|| invalid_err("'database' required for this action"))
         };
         let require_file = || {
-            params.file_path.as_deref().ok_or_else(|| invalid_err("'filePath' required for this action"))
+            params
+                .file_path
+                .as_deref()
+                .ok_or_else(|| invalid_err("'filePath' required for this action"))
         };
 
         let (cmd, timeout_ms) = match params.action.as_str() {
@@ -79,53 +87,79 @@ impl SshConnectServer {
             ),
             "list-tables" => {
                 let db = require_db()?;
-                (format!("{pwd_prefix}mysql -u{user} {} -e 'SHOW TABLES;' 2>&1", shell_quote(db)), 60_000)
+                (
+                    format!(
+                        "{pwd_prefix}mysql -u{user} {} -e 'SHOW TABLES;' 2>&1",
+                        shell_quote(db)
+                    ),
+                    60_000,
+                )
             }
             "query" => {
                 let db = require_db()?;
-                let sql = params.query.as_deref().ok_or_else(|| invalid_err("'query' required for query action"))?;
-                (format!(
-                    "{pwd_prefix}mysql -u{user} {} -e {} 2>&1",
-                    shell_quote(db),
-                    shell_quote(sql)
-                ), 60_000)
+                let sql = params
+                    .query
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'query' required for query action"))?;
+                (
+                    format!(
+                        "{pwd_prefix}mysql -u{user} {} -e {} 2>&1",
+                        shell_quote(db),
+                        shell_quote(sql)
+                    ),
+                    60_000,
+                )
             }
             "backup" => {
                 let db = require_db()?;
                 let fp = require_file()?;
-                (format!(
-                    "{pwd_prefix}mysqldump -u{user} {} > {} 2>&1",
-                    shell_quote(db),
-                    shell_quote(fp)
-                ), 600_000)
+                (
+                    format!(
+                        "{pwd_prefix}mysqldump -u{user} {} > {} 2>&1",
+                        shell_quote(db),
+                        shell_quote(fp)
+                    ),
+                    600_000,
+                )
             }
             "restore" => {
                 let db = require_db()?;
                 let fp = require_file()?;
-                (format!(
-                    "{pwd_prefix}mysql -u{user} {} < {} 2>&1",
-                    shell_quote(db),
-                    shell_quote(fp)
-                ), 600_000)
+                (
+                    format!(
+                        "{pwd_prefix}mysql -u{user} {} < {} 2>&1",
+                        shell_quote(db),
+                        shell_quote(fp)
+                    ),
+                    600_000,
+                )
             }
             "create-db" => {
                 let db = require_db()?;
-                (format!(
-                    "{pwd_prefix}mysql -u{user} -e 'CREATE DATABASE `{}`;' 2>&1",
-                    db.replace('`', "\\`")
-                ), 60_000)
+                (
+                    format!(
+                        "{pwd_prefix}mysql -u{user} -e 'CREATE DATABASE `{}`;' 2>&1",
+                        db.replace('`', "\\`")
+                    ),
+                    60_000,
+                )
             }
             "drop-db" => {
                 let db = require_db()?;
-                (format!(
-                    "{pwd_prefix}mysql -u{user} -e 'DROP DATABASE `{}`;' 2>&1",
-                    db.replace('`', "\\`")
-                ), 60_000)
+                (
+                    format!(
+                        "{pwd_prefix}mysql -u{user} -e 'DROP DATABASE `{}`;' 2>&1",
+                        db.replace('`', "\\`")
+                    ),
+                    60_000,
+                )
             }
-            other => return Err(invalid_err(format!(
-                "Unknown action '{}'. Use: list-databases | list-tables | query | backup | restore | create-db | drop-db",
-                other
-            ))),
+            other => {
+                return Err(invalid_err(format!(
+                    "Unknown action '{}'. Use: list-databases | list-tables | query | backup | restore | create-db | drop-db",
+                    other
+                )));
+            }
         };
 
         let mut conn = conn_arc.lock().await;
@@ -137,7 +171,11 @@ impl SshConnectServer {
             "exit_code: {}\n{}{}",
             exit_code,
             stdout,
-            if stderr.is_empty() { String::new() } else { format!("\n[stderr]\n{}", stderr) }
+            if stderr.is_empty() {
+                String::new()
+            } else {
+                format!("\n[stderr]\n{}", stderr)
+            }
         ))]))
     }
 }

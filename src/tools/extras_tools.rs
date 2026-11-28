@@ -73,7 +73,9 @@ struct DockerParams {
 
 #[tool_router(router = extras_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "Redis cache management. action: ping | info | keyspace | flush-cache | get | del | dbsize. Use 'key' for get/del. phpBB3 can use Redis as cache backend.")]
+    #[tool(
+        description = "Redis cache management. action: ping | info | keyspace | flush-cache | get | del | dbsize. Use 'key' for get/del. phpBB3 can use Redis as cache backend."
+    )]
     async fn vps_redis(
         &self,
         Parameters(params): Parameters<RedisParams>,
@@ -86,22 +88,31 @@ impl SshConnectServer {
         let port = params.port;
 
         let redis_cmd = match params.action.as_str() {
-            "ping"        => "PING".to_string(),
-            "info"        => "INFO".to_string(),
-            "keyspace"    => "INFO keyspace".to_string(),
+            "ping" => "PING".to_string(),
+            "info" => "INFO".to_string(),
+            "keyspace" => "INFO keyspace".to_string(),
             "flush-cache" => "FLUSHDB".to_string(),
-            "dbsize"      => "DBSIZE".to_string(),
+            "dbsize" => "DBSIZE".to_string(),
             "get" => {
-                let key = params.key.as_deref().ok_or_else(|| invalid_err("'key' required for get"))?;
+                let key = params
+                    .key
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'key' required for get"))?;
                 format!("GET {}", shell_quote(key))
             }
             "del" => {
-                let key = params.key.as_deref().ok_or_else(|| invalid_err("'key' required for del"))?;
+                let key = params
+                    .key
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'key' required for del"))?;
                 format!("DEL {}", shell_quote(key))
             }
-            other => return Err(invalid_err(format!(
-                "Unknown action '{}'. Use: ping | info | keyspace | flush-cache | get | del | dbsize", other
-            ))),
+            other => {
+                return Err(invalid_err(format!(
+                    "Unknown action '{}'. Use: ping | info | keyspace | flush-cache | get | del | dbsize",
+                    other
+                )));
+            }
         };
 
         let cmd = format!("{sudo}redis-cli -p {port} {redis_cmd}");
@@ -115,11 +126,17 @@ impl SshConnectServer {
             "exit_code: {}\n{}{}",
             exit_code,
             stdout,
-            if stderr.is_empty() { String::new() } else { format!("\n[stderr]\n{}", stderr) }
+            if stderr.is_empty() {
+                String::new()
+            } else {
+                format!("\n[stderr]\n{}", stderr)
+            }
         ))]))
     }
 
-    #[tool(description = "Docker container management. action: ps | start | stop | restart | logs | exec | pull | inspect. Use 'container' for name/ID, 'command' for exec, 'image' for pull.")]
+    #[tool(
+        description = "Docker container management. action: ps | start | stop | restart | logs | exec | pull | inspect. Use 'container' for name/ID, 'command' for exec, 'image' for pull."
+    )]
     async fn vps_docker(
         &self,
         Parameters(params): Parameters<DockerParams>,
@@ -131,14 +148,16 @@ impl SshConnectServer {
         let sudo = if params.sudo { "sudo " } else { "" };
 
         let require_container = || {
-            params.container.as_deref()
+            params
+                .container
+                .as_deref()
                 .ok_or_else(|| invalid_err("'container' required for this action"))
         };
 
         let cmd = match params.action.as_str() {
             "ps" => format!("{sudo}docker ps -a"),
-            "start"   => format!("{sudo}docker start {}", shell_quote(require_container()?)),
-            "stop"    => format!("{sudo}docker stop {}", shell_quote(require_container()?)),
+            "start" => format!("{sudo}docker start {}", shell_quote(require_container()?)),
+            "stop" => format!("{sudo}docker stop {}", shell_quote(require_container()?)),
             "restart" => format!("{sudo}docker restart {}", shell_quote(require_container()?)),
             "inspect" => format!("{sudo}docker inspect {}", shell_quote(require_container()?)),
             "logs" => format!(
@@ -148,23 +167,32 @@ impl SshConnectServer {
             ),
             "exec" => {
                 let container = require_container()?;
-                let command = params.command.as_deref()
+                let command = params
+                    .command
+                    .as_deref()
                     .ok_or_else(|| invalid_err("'command' required for exec action"))?;
                 format!("{sudo}docker exec {} {}", shell_quote(container), command)
             }
             "pull" => {
-                let image = params.image.as_deref()
+                let image = params
+                    .image
+                    .as_deref()
                     .ok_or_else(|| invalid_err("'image' required for pull action"))?;
                 format!("{sudo}docker pull {}", shell_quote(image))
             }
-            other => return Err(invalid_err(format!(
-                "Unknown action '{}'. Use: ps | start | stop | restart | logs | exec | pull | inspect", other
-            ))),
+            other => {
+                return Err(invalid_err(format!(
+                    "Unknown action '{}'. Use: ps | start | stop | restart | logs | exec | pull | inspect",
+                    other
+                )));
+            }
         };
 
-        let timeout_ms = params
-            .timeout_ms
-            .unwrap_or(if params.action == "pull" { 300_000 } else { 60_000 });
+        let timeout_ms = params.timeout_ms.unwrap_or(if params.action == "pull" {
+            300_000
+        } else {
+            60_000
+        });
 
         let mut conn = conn_arc.lock().await;
         let (exit_code, stdout, stderr) = exec_command(&mut conn.handle, &cmd, timeout_ms)
@@ -175,7 +203,11 @@ impl SshConnectServer {
             "exit_code: {}\n{}{}",
             exit_code,
             stdout,
-            if stderr.is_empty() { String::new() } else { format!("\n[stderr]\n{}", stderr) }
+            if stderr.is_empty() {
+                String::new()
+            } else {
+                format!("\n[stderr]\n{}", stderr)
+            }
         ))]))
     }
 }

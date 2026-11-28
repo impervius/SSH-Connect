@@ -6,10 +6,7 @@
 //! `ssh_exec` and the `vps_*` tools.
 
 use rmcp::{
-    ErrorData,
-    handler::server::wrapper::Parameters,
-    model::CallToolResult,
-    tool, tool_router,
+    ErrorData, handler::server::wrapper::Parameters, model::CallToolResult, tool, tool_router,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -24,7 +21,7 @@ use crate::tools::util::json_result;
 use crate::transport::serial::SerialTransport;
 use crate::transport::ssh::{SshAuth, SshTransport};
 use crate::transport::telnet::TelnetTransport;
-use crate::transport::{Protocol, Session, Transport, DEFAULT_PROMPT};
+use crate::transport::{DEFAULT_PROMPT, Protocol, Session, Transport};
 use regex::Regex;
 
 // ── parameter structs ─────────────────────────────────────────────────────────
@@ -71,7 +68,9 @@ pub struct DisconnectParams {
 
 #[tool_router(router = session_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "Open a named interactive session to a switch/host over SSH, Telnet, or serial. If `name` matches a host in the inventory (hosts.toml), its parameters are used as defaults and explicit arguments override them. The session persists across tool calls until `disconnect`. Use this (with run_command/enable/login) for network devices and consoles; use ssh_connect for server-ops with exit codes.")]
+    #[tool(
+        description = "Open a named interactive session to a switch/host over SSH, Telnet, or serial. If `name` matches a host in the inventory (hosts.toml), its parameters are used as defaults and explicit arguments override them. The session persists across tool calls until `disconnect`. Use this (with run_command/enable/login) for network devices and consoles; use ssh_connect for server-ops with exit codes."
+    )]
     async fn connect(
         &self,
         Parameters(params): Parameters<ConnectParams>,
@@ -89,7 +88,10 @@ impl SshConnectServer {
             })?,
         };
 
-        let host = params.host.clone().or_else(|| entry.as_ref().and_then(|e| e.host.clone()));
+        let host = params
+            .host
+            .clone()
+            .or_else(|| entry.as_ref().and_then(|e| e.host.clone()));
         let port = params.port.or_else(|| entry.as_ref().and_then(|e| e.port));
         let username = params
             .username
@@ -129,9 +131,7 @@ impl SshConnectServer {
                 let alias = host.clone().unwrap_or_else(|| name.clone());
                 let defaults = crate::ssh_config::lookup(&alias).await;
 
-                let host = host
-                    .or(defaults.hostname)
-                    .unwrap_or_else(|| alias.clone());
+                let host = host.or(defaults.hostname).unwrap_or_else(|| alias.clone());
                 let username = username.or(defaults.username).ok_or_else(|| {
                     ToolError::bad_request(format!(
                         "ssh requires 'username': pass it, add it to the inventory, set User for '{alias}' in ~/.ssh/config, or set USER/USERNAME in the environment"
@@ -204,16 +204,24 @@ impl SshConnectServer {
     ) -> Result<CallToolResult, ErrorData> {
         let handle = self.sessions.remove(&params.session).await?;
         let _ = handle.lock().await.close().await;
-        Ok(json_result(json!({ "disconnected": true, "session": params.session })))
+        Ok(json_result(
+            json!({ "disconnected": true, "session": params.session }),
+        ))
     }
 
-    #[tool(description = "List all currently open interactive sessions with their protocol and target.")]
+    #[tool(
+        description = "List all currently open interactive sessions with their protocol and target."
+    )]
     async fn list_sessions(&self) -> Result<CallToolResult, ErrorData> {
         let sessions = self.sessions.list().await;
-        Ok(json_result(json!({ "count": sessions.len(), "sessions": sessions })))
+        Ok(json_result(
+            json!({ "count": sessions.len(), "sessions": sessions }),
+        ))
     }
 
-    #[tool(description = "Enumerate serial/COM ports visible to the OS, with description, manufacturer, product, serial number, USB vid:pid (e.g. FTDI 0403:6001, Prolific 067b:2303, Silicon Labs 10c4:ea60, CH340 1a86:7523), and a free/in_use status from a non-destructive open test.")]
+    #[tool(
+        description = "Enumerate serial/COM ports visible to the OS, with description, manufacturer, product, serial number, USB vid:pid (e.g. FTDI 0403:6001, Prolific 067b:2303, Silicon Labs 10c4:ea60, CH340 1a86:7523), and a free/in_use status from a non-destructive open test."
+    )]
     async fn list_com_ports(&self) -> Result<CallToolResult, ErrorData> {
         let ports = ports::list_com_ports().await?;
         Ok(json_result(json!({ "count": ports.len(), "ports": ports })))

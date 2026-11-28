@@ -76,7 +76,9 @@ struct ProcessParams {
 
 #[tool_router(router = system_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "Get disk usage, memory, CPU count, load average, and OS info in a single call. Good first check for any VPS issue.")]
+    #[tool(
+        description = "Get disk usage, memory, CPU count, load average, and OS info in a single call. Good first check for any VPS issue."
+    )]
     async fn vps_system_stats(
         &self,
         Parameters(params): Parameters<SystemStatsParams>,
@@ -104,7 +106,9 @@ impl SshConnectServer {
         Ok(CallToolResult::success(vec![ContentBlock::text(out)]))
     }
 
-    #[tool(description = "Tail a log file or journalctl unit. service: nginx-access | nginx-error | syslog | auth | mysql | php | journalctl. Use 'unit' for journalctl service name. Use 'filter' for grep pattern.")]
+    #[tool(
+        description = "Tail a log file or journalctl unit. service: nginx-access | nginx-error | syslog | auth | mysql | php | journalctl. Use 'unit' for journalctl service name. Use 'filter' for grep pattern."
+    )]
     async fn vps_logs(
         &self,
         Parameters(params): Parameters<LogsParams>,
@@ -118,21 +122,28 @@ impl SshConnectServer {
 
         let base_cmd = match params.service.as_str() {
             "nginx-access" => format!("{sudo}tail -n {n} /var/log/nginx/access.log 2>&1"),
-            "nginx-error"  => format!("{sudo}tail -n {n} /var/log/nginx/error.log 2>&1"),
-            "syslog"       => format!("{sudo}tail -n {n} /var/log/syslog 2>&1"),
-            "auth"         => format!("{sudo}tail -n {n} /var/log/auth.log 2>&1"),
-            "mysql"        => format!("{sudo}tail -n {n} /var/log/mysql/error.log 2>&1"),
-            "php"          => format!(
+            "nginx-error" => format!("{sudo}tail -n {n} /var/log/nginx/error.log 2>&1"),
+            "syslog" => format!("{sudo}tail -n {n} /var/log/syslog 2>&1"),
+            "auth" => format!("{sudo}tail -n {n} /var/log/auth.log 2>&1"),
+            "mysql" => format!("{sudo}tail -n {n} /var/log/mysql/error.log 2>&1"),
+            "php" => format!(
                 "{sudo}tail -n {n} $(ls /var/log/php*/error.log 2>/dev/null | head -1) 2>&1"
             ),
             "journalctl" => {
                 let unit = params.unit.as_deref().unwrap_or("");
                 if unit.is_empty() {
-                    return Err(invalid_err("'unit' is required when service = 'journalctl'"));
+                    return Err(invalid_err(
+                        "'unit' is required when service = 'journalctl'",
+                    ));
                 }
                 format!("{sudo}journalctl -u {unit} -n {n} --no-pager 2>&1")
             }
-            other => return Err(invalid_err(format!("Unknown service '{}'. Use: nginx-access | nginx-error | syslog | auth | mysql | php | journalctl", other))),
+            other => {
+                return Err(invalid_err(format!(
+                    "Unknown service '{}'. Use: nginx-access | nginx-error | syslog | auth | mysql | php | journalctl",
+                    other
+                )));
+            }
         };
 
         let cmd = match &params.filter {
@@ -153,7 +164,9 @@ impl SshConnectServer {
         Ok(CallToolResult::success(vec![ContentBlock::text(out)]))
     }
 
-    #[tool(description = "List, find, or kill processes. action: list (top 30 by CPU) | find (by name) | kill (by pid or name). signal: TERM | KILL | HUP | USR1 | USR2 (default: TERM).")]
+    #[tool(
+        description = "List, find, or kill processes. action: list (top 30 by CPU) | find (by name) | kill (by pid or name). signal: TERM | KILL | HUP | USR1 | USR2 (default: TERM)."
+    )]
     async fn vps_process(
         &self,
         Parameters(params): Parameters<ProcessParams>,
@@ -168,7 +181,10 @@ impl SshConnectServer {
         let cmd = match params.action.as_str() {
             "list" => "ps aux --sort=-%cpu | head -30".to_string(),
             "find" => {
-                let name = params.name.as_deref().ok_or_else(|| invalid_err("'name' required for find"))?;
+                let name = params
+                    .name
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'name' required for find"))?;
                 format!("ps aux | grep -i {} | grep -v grep", shell_quote(name))
             }
             "kill" => {
@@ -180,7 +196,12 @@ impl SshConnectServer {
                     return Err(invalid_err("'pid' or 'name' required for kill"));
                 }
             }
-            other => return Err(invalid_err(format!("Unknown action '{}'. Use: list | find | kill", other))),
+            other => {
+                return Err(invalid_err(format!(
+                    "Unknown action '{}'. Use: list | find | kill",
+                    other
+                )));
+            }
         };
 
         let mut conn = conn_arc.lock().await;
@@ -192,7 +213,11 @@ impl SshConnectServer {
             "exit_code: {}\n{}{}",
             exit_code,
             stdout,
-            if stderr.is_empty() { String::new() } else { format!("\n[stderr]\n{}", stderr) }
+            if stderr.is_empty() {
+                String::new()
+            } else {
+                format!("\n[stderr]\n{}", stderr)
+            }
         ))]))
     }
 }

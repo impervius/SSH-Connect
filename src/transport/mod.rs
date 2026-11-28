@@ -6,7 +6,7 @@ pub mod serial;
 pub mod ssh;
 pub mod telnet;
 
-pub use manager::{SessionManager, DEFAULT_PROMPT};
+pub use manager::{DEFAULT_PROMPT, SessionManager};
 
 use crate::error::{ErrorKind, ToolError, ToolResult};
 use async_trait::async_trait;
@@ -158,14 +158,15 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(
-        name: String,
-        target: String,
-        prompt: Regex,
-        transport: Box<dyn Transport>,
-    ) -> Self {
+    pub fn new(name: String, target: String, prompt: Regex, transport: Box<dyn Transport>) -> Self {
         let protocol = transport.protocol();
-        Self { name, protocol, target, prompt, transport }
+        Self {
+            name,
+            protocol,
+            target,
+            prompt,
+            transport,
+        }
     }
 
     /// Write `text` followed by the protocol's line ending.
@@ -178,7 +179,11 @@ impl Session {
     /// Send a command (the protocol's line ending is appended) and read the
     /// device's response up to the prompt or `timeout`. A `--More--` pager is
     /// auto-advanced (space) and the pages are stitched together.
-    pub async fn run_command(&mut self, command: &str, timeout: Duration) -> ToolResult<ReadOutcome> {
+    pub async fn run_command(
+        &mut self,
+        command: &str,
+        timeout: Duration,
+    ) -> ToolResult<ReadOutcome> {
         self.run_command_inner(command, timeout, false).await
     }
 
@@ -214,11 +219,7 @@ impl Session {
         loop {
             let outcome =
                 read_until_prompt(self.transport.as_mut(), &self.prompt, timeout, true).await?;
-            let is_more = outcome
-                .sub_prompt
-                .as_deref()
-                .map(is_pager)
-                .unwrap_or(false);
+            let is_more = outcome.sub_prompt.as_deref().map(is_pager).unwrap_or(false);
 
             if is_more && pages < MAX_PAGES {
                 pages += 1;
@@ -283,7 +284,8 @@ impl Session {
             .unwrap_or(false);
         if asks_user {
             self.send_line(username.unwrap_or("")).await?;
-            outcome = read_until_prompt(self.transport.as_mut(), &self.prompt, timeout, true).await?;
+            outcome =
+                read_until_prompt(self.transport.as_mut(), &self.prompt, timeout, true).await?;
         }
 
         // Password challenge.
@@ -294,7 +296,8 @@ impl Session {
             .unwrap_or(false);
         if asks_pw {
             self.send_line(password).await?;
-            outcome = read_until_prompt(self.transport.as_mut(), &self.prompt, timeout, true).await?;
+            outcome =
+                read_until_prompt(self.transport.as_mut(), &self.prompt, timeout, true).await?;
         }
         Ok(outcome)
     }
@@ -390,7 +393,9 @@ pub async fn read_until_prompt(
                 pattern.find(&tail).map(|m| m.as_str().trim().to_string())
             }
         } else {
-            pattern.find(&cleaned).map(|m| m.as_str().trim().to_string())
+            pattern
+                .find(&cleaned)
+                .map(|m| m.as_str().trim().to_string())
         };
         if let Some(matched) = hit {
             return Ok(ReadOutcome {
@@ -405,16 +410,15 @@ pub async fn read_until_prompt(
         // Sub-prompt detection (only on the command path): if the device is
         // waiting at a Password:/[confirm]/--More-- prompt, return now rather
         // than burning the whole timeout waiting for a CLI prompt.
-        if anchor_tail
-            && let Some(m) = subprompt_re().find(&tail) {
-                return Ok(ReadOutcome {
-                    output: cleaned,
-                    matched_prompt: None,
-                    sub_prompt: Some(m.as_str().trim().to_string()),
-                    timed_out: false,
-                    truncated: false,
-                });
-            }
+        if anchor_tail && let Some(m) = subprompt_re().find(&tail) {
+            return Ok(ReadOutcome {
+                output: cleaned,
+                matched_prompt: None,
+                sub_prompt: Some(m.as_str().trim().to_string()),
+                timed_out: false,
+                truncated: false,
+            });
+        }
     }
 }
 
@@ -464,9 +468,10 @@ pub fn clean_output(cleaned: &str, command: &str, strip_prompt: bool) -> String 
 
     // Remove a leading echoed command line.
     if let Some(first) = lines.first()
-        && first.trim() == command.trim() {
-            lines.remove(0);
-        }
+        && first.trim() == command.trim()
+    {
+        lines.remove(0);
+    }
 
     if strip_prompt {
         // Remove the trailing prompt line the device re-displayed. read_until_prompt

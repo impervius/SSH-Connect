@@ -1,3 +1,5 @@
+use crate::server::SshConnectServer;
+use crate::state::exec_command;
 use rmcp::{
     ErrorData,
     handler::server::wrapper::Parameters,
@@ -6,8 +8,6 @@ use rmcp::{
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
-use crate::server::SshConnectServer;
-use crate::state::exec_command;
 
 fn internal_err(msg: impl ToString) -> ErrorData {
     ErrorData::internal_error(msg.to_string(), None)
@@ -83,7 +83,9 @@ struct CronParams {
 
 #[tool_router(router = file_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "Read a remote file's contents. Optionally limit to N lines from the start (head) or end (from_end=true, tail). Good for inspecting nginx configs, PHP ini, .env files, phpBB3 config.php.")]
+    #[tool(
+        description = "Read a remote file's contents. Optionally limit to N lines from the start (head) or end (from_end=true, tail). Good for inspecting nginx configs, PHP ini, .env files, phpBB3 config.php."
+    )]
     async fn vps_file_read(
         &self,
         Parameters(params): Parameters<FileReadParams>,
@@ -110,14 +112,20 @@ impl SshConnectServer {
             return Err(internal_err(format!(
                 "Command failed (exit {}): {}",
                 exit_code,
-                if stderr.is_empty() { "no output" } else { &stderr }
+                if stderr.is_empty() {
+                    "no output"
+                } else {
+                    &stderr
+                }
             )));
         }
 
         Ok(CallToolResult::success(vec![ContentBlock::text(stdout)]))
     }
 
-    #[tool(description = "Remote file system operations. action: delete | mkdir | chmod | chown | find | copy | move. Use recursive=true for directory operations. sudo=true for protected paths.")]
+    #[tool(
+        description = "Remote file system operations. action: delete | mkdir | chmod | chown | find | copy | move. Use recursive=true for directory operations. sudo=true for protected paths."
+    )]
     async fn vps_file_ops(
         &self,
         Parameters(params): Parameters<FileOpsParams>,
@@ -138,15 +146,17 @@ impl SshConnectServer {
             }
             "mkdir" => format!("{sudo}mkdir -p {path}"),
             "chmod" => {
-                let perms = params.permissions.as_deref().ok_or_else(|| {
-                    invalid_err("'permissions' required for chmod")
-                })?;
+                let perms = params
+                    .permissions
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'permissions' required for chmod"))?;
                 format!("{sudo}chmod{r_upper} {perms} {path}")
             }
             "chown" => {
-                let owner = params.owner.as_deref().ok_or_else(|| {
-                    invalid_err("'owner' required for chown")
-                })?;
+                let owner = params
+                    .owner
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'owner' required for chown"))?;
                 format!("{sudo}chown{r_upper} {} {path}", shell_quote(owner))
             }
             "find" => {
@@ -154,20 +164,25 @@ impl SshConnectServer {
                 format!("find {path} -name {} 2>&1", shell_quote(pattern))
             }
             "copy" => {
-                let dest = params.destination.as_deref().ok_or_else(|| {
-                    invalid_err("'destination' required for copy")
-                })?;
+                let dest = params
+                    .destination
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'destination' required for copy"))?;
                 format!("{sudo}cp{r} {path} {}", shell_quote(dest))
             }
             "move" => {
-                let dest = params.destination.as_deref().ok_or_else(|| {
-                    invalid_err("'destination' required for move")
-                })?;
+                let dest = params
+                    .destination
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'destination' required for move"))?;
                 format!("{sudo}mv {path} {}", shell_quote(dest))
             }
-            other => return Err(invalid_err(format!(
-                "Unknown action '{}'. Use: delete | mkdir | chmod | chown | find | copy | move", other
-            ))),
+            other => {
+                return Err(invalid_err(format!(
+                    "Unknown action '{}'. Use: delete | mkdir | chmod | chown | find | copy | move",
+                    other
+                )));
+            }
         };
 
         let mut conn = conn_arc.lock().await;
@@ -179,11 +194,17 @@ impl SshConnectServer {
             "exit_code: {}\n{}{}",
             exit_code,
             stdout,
-            if stderr.is_empty() { String::new() } else { format!("\n[stderr]\n{}", stderr) }
+            if stderr.is_empty() {
+                String::new()
+            } else {
+                format!("\n[stderr]\n{}", stderr)
+            }
         ))]))
     }
 
-    #[tool(description = "Manage cron jobs. action: list | add | remove. Use 'entry' for the full cron line when adding (e.g. '*/5 * * * * /usr/bin/php /path/cron.php'). Use 'pattern' to match lines for removal.")]
+    #[tool(
+        description = "Manage cron jobs. action: list | add | remove. Use 'entry' for the full cron line when adding (e.g. '*/5 * * * * /usr/bin/php /path/cron.php'). Use 'pattern' to match lines for removal."
+    )]
     async fn vps_cron(
         &self,
         Parameters(params): Parameters<CronParams>,
@@ -201,26 +222,31 @@ impl SshConnectServer {
         let cmd = match params.action.as_str() {
             "list" => format!("{user_flag}-l 2>/dev/null || echo '(no crontab)'"),
             "add" => {
-                let entry = params.entry.as_deref().ok_or_else(|| {
-                    invalid_err("'entry' required for add action")
-                })?;
+                let entry = params
+                    .entry
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'entry' required for add action"))?;
                 format!(
                     "({user_flag}-l 2>/dev/null; echo {}) | {user_flag}-",
                     shell_quote(entry)
                 )
             }
             "remove" => {
-                let pattern = params.pattern.as_deref().ok_or_else(|| {
-                    invalid_err("'pattern' required for remove action")
-                })?;
+                let pattern = params
+                    .pattern
+                    .as_deref()
+                    .ok_or_else(|| invalid_err("'pattern' required for remove action"))?;
                 format!(
                     "{user_flag}-l 2>/dev/null | grep -vF {} | {user_flag}-",
                     shell_quote(pattern)
                 )
             }
-            other => return Err(invalid_err(format!(
-                "Unknown action '{}'. Use: list | add | remove", other
-            ))),
+            other => {
+                return Err(invalid_err(format!(
+                    "Unknown action '{}'. Use: list | add | remove",
+                    other
+                )));
+            }
         };
 
         let mut conn = conn_arc.lock().await;
@@ -232,7 +258,11 @@ impl SshConnectServer {
             "exit_code: {}\n{}{}",
             exit_code,
             stdout,
-            if stderr.is_empty() { String::new() } else { format!("\n[stderr]\n{}", stderr) }
+            if stderr.is_empty() {
+                String::new()
+            } else {
+                format!("\n[stderr]\n{}", stderr)
+            }
         ))]))
     }
 }

@@ -22,7 +22,12 @@ pub fn host_key_policy() -> HostKeyPolicy {
     let enabled = |var: &str| {
         std::env::var(var)
             .ok()
-            .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "tofu" | "1" | "true" | "on" | "yes"))
+            .map(|v| {
+                matches!(
+                    v.trim().to_ascii_lowercase().as_str(),
+                    "tofu" | "1" | "true" | "on" | "yes"
+                )
+            })
             .unwrap_or(false)
     };
     if enabled("SSHCONNECT_HOST_KEY_CHECK") || enabled("VPS_HOST_KEY_CHECK") {
@@ -79,18 +84,19 @@ impl russh::client::Handler for VpsClientHandler {
                     continue;
                 }
                 if let Some((stored_id, stored_key)) = line.split_once(' ')
-                    && stored_id == id {
-                        if stored_key.trim() == key_line {
-                            return Ok(true);
-                        }
-                        tracing::error!(
-                            host = %id,
-                            "host key MISMATCH — refusing connection (possible MITM). \
-                             Remove the stale line from {} if this change is expected.",
-                            path.display()
-                        );
-                        return Ok(false);
+                    && stored_id == id
+                {
+                    if stored_key.trim() == key_line {
+                        return Ok(true);
                     }
+                    tracing::error!(
+                        host = %id,
+                        "host key MISMATCH — refusing connection (possible MITM). \
+                         Remove the stale line from {} if this change is expected.",
+                        path.display()
+                    );
+                    return Ok(false);
+                }
             }
         }
 
@@ -99,7 +105,11 @@ impl russh::client::Handler for VpsClientHandler {
             let _ = std::fs::create_dir_all(parent);
         }
         use std::io::Write;
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+        {
             let _ = writeln!(f, "{} {}", id, key_line);
         }
         let fp = public_key.fingerprint(Default::default());
@@ -178,8 +188,7 @@ pub async fn exec_command(
     let mut exit_code = 0i32;
     let mut timed_out = false;
 
-    let deadline =
-        tokio::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
 
     loop {
         match tokio::time::timeout_at(deadline, channel.wait()).await {

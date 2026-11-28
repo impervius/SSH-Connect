@@ -4,10 +4,7 @@
 //! [`SessionManager`](crate::transport::SessionManager) registry.
 
 use rmcp::{
-    ErrorData,
-    handler::server::wrapper::Parameters,
-    model::CallToolResult,
-    tool, tool_router,
+    ErrorData, handler::server::wrapper::Parameters, model::CallToolResult, tool, tool_router,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -98,7 +95,9 @@ pub struct DownloadConfigParams {
 
 #[tool_router(router = interactive_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "Send one command to an interactive session and return device output up to the next prompt: { output, matched_prompt, sub_prompt, timed_out, truncated, duration_ms }. A --More-- pager is auto-advanced. If the device stops at a sub-prompt (Password:, [confirm]) it returns immediately with sub_prompt set. Do NOT send passwords here (they would be echoed) — use enable/login.")]
+    #[tool(
+        description = "Send one command to an interactive session and return device output up to the next prompt: { output, matched_prompt, sub_prompt, timed_out, truncated, duration_ms }. A --More-- pager is auto-advanced. If the device stops at a sub-prompt (Password:, [confirm]) it returns immediately with sub_prompt set. Do NOT send passwords here (they would be echoed) — use enable/login."
+    )]
     async fn run_command(
         &self,
         Parameters(params): Parameters<RunCommandParams>,
@@ -126,7 +125,9 @@ impl SshConnectServer {
         })))
     }
 
-    #[tool(description = "Send a list of commands sequentially to one session and return each command's output. A per-command timeout does NOT abort the sequence; only a transport/connection error stops it early.")]
+    #[tool(
+        description = "Send a list of commands sequentially to one session and return each command's output. A per-command timeout does NOT abort the sequence; only a transport/connection error stops it early."
+    )]
     async fn run_commands(
         &self,
         Parameters(params): Parameters<RunCommandsParams>,
@@ -146,10 +147,14 @@ impl SshConnectServer {
                 "duration_ms": start.elapsed().as_millis() as u64,
             }));
         }
-        Ok(json_result(json!({ "session": params.session, "results": results })))
+        Ok(json_result(
+            json!({ "session": params.session, "results": results }),
+        ))
     }
 
-    #[tool(description = "Enter privileged (enable) mode, supplying the enable password if the device challenges. The password is NEVER echoed back. Drives the 'enable' → Password: handshake in one step.")]
+    #[tool(
+        description = "Enter privileged (enable) mode, supplying the enable password if the device challenges. The password is NEVER echoed back. Drives the 'enable' → Password: handshake in one step."
+    )]
     async fn enable(
         &self,
         Parameters(params): Parameters<EnableParams>,
@@ -168,7 +173,9 @@ impl SshConnectServer {
         })))
     }
 
-    #[tool(description = "Log in over a console/vty that prompts for username and/or password (e.g. after connecting telnet/serial). Secrets are NEVER echoed back.")]
+    #[tool(
+        description = "Log in over a console/vty that prompts for username and/or password (e.g. after connecting telnet/serial). Secrets are NEVER echoed back."
+    )]
     async fn login(
         &self,
         Parameters(params): Parameters<LoginParams>,
@@ -191,7 +198,9 @@ impl SshConnectServer {
         })))
     }
 
-    #[tool(description = "Wait until `expect` (a regex) appears in the output, then send `send` verbatim (no newline added). Use for enable passwords, [confirm] prompts, and pagination.")]
+    #[tool(
+        description = "Wait until `expect` (a regex) appears in the output, then send `send` verbatim (no newline added). Use for enable passwords, [confirm] prompts, and pagination."
+    )]
     async fn expect_send(
         &self,
         Parameters(params): Parameters<ExpectSendParams>,
@@ -201,7 +210,11 @@ impl SshConnectServer {
         let handle = self.sessions.get(&params.session).await?;
         let mut guard = handle.lock().await;
         let outcome = guard
-            .expect_send(&expect, &params.send, timeout_or_default(params.timeout_secs))
+            .expect_send(
+                &expect,
+                &params.send,
+                timeout_or_default(params.timeout_secs),
+            )
             .await?;
         Ok(json_result(json!({
             "session": params.session,
@@ -211,7 +224,9 @@ impl SshConnectServer {
         })))
     }
 
-    #[tool(description = "Run the same command across multiple named sessions in parallel. Returns a per-session result with output or an error — one failing device does not abort the others.")]
+    #[tool(
+        description = "Run the same command across multiple named sessions in parallel. Returns a per-session result with output or an error — one failing device does not abort the others."
+    )]
     async fn run_on_fleet(
         &self,
         Parameters(params): Parameters<RunOnFleetParams>,
@@ -250,7 +265,9 @@ impl SshConnectServer {
         while let Some(joined) = set.join_next().await {
             match joined {
                 Ok(v) => results.push(v),
-                Err(e) => results.push(json!({ "ok": false, "error": format!("task panicked: {e}") })),
+                Err(e) => {
+                    results.push(json!({ "ok": false, "error": format!("task panicked: {e}") }))
+                }
             }
         }
         results.sort_by(|a, b| {
@@ -258,10 +275,14 @@ impl SshConnectServer {
                 .and_then(|v| v.as_str())
                 .cmp(&b.get("session").and_then(|v| v.as_str()))
         });
-        Ok(json_result(json!({ "command": command, "results": results })))
+        Ok(json_result(
+            json!({ "command": command, "results": results }),
+        ))
     }
 
-    #[tool(description = "Upload a local file to an interactive SSH session over SFTP (firmware, configs). SSH sessions only. Returns bytes transferred.")]
+    #[tool(
+        description = "Upload a local file to an interactive SSH session over SFTP (firmware, configs). SSH sessions only. Returns bytes transferred."
+    )]
     async fn upload_config(
         &self,
         Parameters(params): Parameters<UploadConfigParams>,
@@ -269,7 +290,10 @@ impl SshConnectServer {
         let handle = self.sessions.get(&params.session).await?;
         let mut guard = handle.lock().await;
         let bytes = guard
-            .upload(std::path::Path::new(&params.local_path), &params.remote_path)
+            .upload(
+                std::path::Path::new(&params.local_path),
+                &params.remote_path,
+            )
             .await?;
         Ok(json_result(json!({
             "uploaded": true,
@@ -280,7 +304,9 @@ impl SshConnectServer {
         })))
     }
 
-    #[tool(description = "Download a remote file (e.g. a saved config) from an interactive SSH session over SFTP to a local path. SSH sessions only. Returns bytes transferred.")]
+    #[tool(
+        description = "Download a remote file (e.g. a saved config) from an interactive SSH session over SFTP to a local path. SSH sessions only. Returns bytes transferred."
+    )]
     async fn download_config(
         &self,
         Parameters(params): Parameters<DownloadConfigParams>,
@@ -288,7 +314,10 @@ impl SshConnectServer {
         let handle = self.sessions.get(&params.session).await?;
         let mut guard = handle.lock().await;
         let bytes = guard
-            .download(&params.remote_path, std::path::Path::new(&params.local_path))
+            .download(
+                &params.remote_path,
+                std::path::Path::new(&params.local_path),
+            )
             .await?;
         Ok(json_result(json!({
             "downloaded": true,

@@ -127,16 +127,16 @@ struct FirewallParams {
 
 #[tool_router(router = ubuntu_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "Control the Nginx web server on Ubuntu via systemctl. Actions: start, stop, restart, status, reload, check-config.")]
+    #[tool(
+        description = "Control the Nginx web server on Ubuntu via systemctl. Actions: start, stop, restart, status, reload, check-config."
+    )]
     async fn ubuntu_nginx_control(
         &self,
         Parameters(params): Parameters<NginxControlParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let conn_arc = self
-            .pool
-            .get(&params.connection_id)
-            .await
-            .ok_or_else(|| invalid_err(format!("No active connection: '{}'", params.connection_id)))?;
+        let conn_arc = self.pool.get(&params.connection_id).await.ok_or_else(|| {
+            invalid_err(format!("No active connection: '{}'", params.connection_id))
+        })?;
 
         let s = if params.sudo { "sudo " } else { "" };
 
@@ -149,7 +149,7 @@ impl SshConnectServer {
                 return Err(invalid_err(format!(
                     "Invalid action '{}'. Use: start|stop|restart|status|reload|check-config",
                     other
-                )))
+                )));
             }
         };
 
@@ -165,16 +165,16 @@ impl SshConnectServer {
         ))]))
     }
 
-    #[tool(description = "Update apt packages on Ubuntu. Runs apt-get update, then optionally upgrade or security-only updates, and optionally autoremove.")]
+    #[tool(
+        description = "Update apt packages on Ubuntu. Runs apt-get update, then optionally upgrade or security-only updates, and optionally autoremove."
+    )]
     async fn ubuntu_update_packages(
         &self,
         Parameters(params): Parameters<UpdatePackagesParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let conn_arc = self
-            .pool
-            .get(&params.connection_id)
-            .await
-            .ok_or_else(|| invalid_err(format!("No active connection: '{}'", params.connection_id)))?;
+        let conn_arc = self.pool.get(&params.connection_id).await.ok_or_else(|| {
+            invalid_err(format!("No active connection: '{}'", params.connection_id))
+        })?;
 
         let s = if params.sudo { "sudo " } else { "" };
         let upgrade_timeout = params.timeout_ms.unwrap_or(300_000);
@@ -182,10 +182,13 @@ impl SshConnectServer {
         let mut conn = conn_arc.lock().await;
 
         // Step 1: always refresh package lists
-        let (code, out, err) =
-            exec_command(&mut conn.handle, &format!("{}apt-get update 2>&1", s), 120_000)
-                .await
-                .map_err(|e| internal_err(e.to_string()))?;
+        let (code, out, err) = exec_command(
+            &mut conn.handle,
+            &format!("{}apt-get update 2>&1", s),
+            120_000,
+        )
+        .await
+        .map_err(|e| internal_err(e.to_string()))?;
         results.push(format!(
             "apt-get update (exit {}):\n{}",
             code,
@@ -238,19 +241,21 @@ $(apt-get -s dist-upgrade 2>/dev/null | grep '^Inst' | grep -i securi | awk '{{p
             ));
         }
 
-        Ok(CallToolResult::success(vec![ContentBlock::text(results.join("\n\n"))]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            results.join("\n\n"),
+        )]))
     }
 
-    #[tool(description = "Manage Let's Encrypt SSL certificates via certbot. Actions: issue (requires domain+email), renew, status, list.")]
+    #[tool(
+        description = "Manage Let's Encrypt SSL certificates via certbot. Actions: issue (requires domain+email), renew, status, list."
+    )]
     async fn ubuntu_ssl_certificate(
         &self,
         Parameters(params): Parameters<SslCertParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let conn_arc = self
-            .pool
-            .get(&params.connection_id)
-            .await
-            .ok_or_else(|| invalid_err(format!("No active connection: '{}'", params.connection_id)))?;
+        let conn_arc = self.pool.get(&params.connection_id).await.ok_or_else(|| {
+            invalid_err(format!("No active connection: '{}'", params.connection_id))
+        })?;
 
         let s = if params.sudo { "sudo " } else { "" };
         let ssl_timeout = params.timeout_ms.unwrap_or(120_000);
@@ -284,7 +289,7 @@ $(apt-get -s dist-upgrade 2>/dev/null | grep '^Inst' | grep -i securi | awk '{{p
                 return Err(invalid_err(format!(
                     "Invalid action '{}'. Use: issue|renew|status|list",
                     other
-                )))
+                )));
             }
         };
 
@@ -300,16 +305,16 @@ $(apt-get -s dist-upgrade 2>/dev/null | grep '^Inst' | grep -i securi | awk '{{p
         ))]))
     }
 
-    #[tool(description = "Deploy, backup, or restore website files on the remote server. 'deploy' uploads local files via SFTP. 'backup' and 'restore' use tar archives on the remote.")]
+    #[tool(
+        description = "Deploy, backup, or restore website files on the remote server. 'deploy' uploads local files via SFTP. 'backup' and 'restore' use tar archives on the remote."
+    )]
     async fn ubuntu_website_deployment(
         &self,
         Parameters(params): Parameters<DeployParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let conn_arc = self
-            .pool
-            .get(&params.connection_id)
-            .await
-            .ok_or_else(|| invalid_err(format!("No active connection: '{}'", params.connection_id)))?;
+        let conn_arc = self.pool.get(&params.connection_id).await.ok_or_else(|| {
+            invalid_err(format!("No active connection: '{}'", params.connection_id))
+        })?;
 
         let s = if params.sudo { "sudo " } else { "" };
         let mut conn = conn_arc.lock().await;
@@ -376,22 +381,23 @@ $(apt-get -s dist-upgrade 2>/dev/null | grep '^Inst' | grep -i securi | awk '{{p
 
                 // Optional pre-deploy backup
                 if params.create_backup
-                    && let Some(ref backup) = params.backup_path {
-                        let cmd = format!(
-                            r#"{s}tar -czf {backup} -C "$(dirname {remote})" "$(basename {remote})" 2>&1"#,
-                            s = s,
-                            backup = shell_quote(backup),
-                            remote = shell_quote(&remote)
-                        );
-                        let (code, out, err) = exec_command(&mut conn.handle, &cmd, 120_000)
-                            .await
-                            .map_err(|e| internal_err(e.to_string()))?;
-                        results.push(format!(
-                            "pre-deploy backup (exit {}):\n{}",
-                            code,
-                            if out.is_empty() { &err } else { &out }
-                        ));
-                    }
+                    && let Some(ref backup) = params.backup_path
+                {
+                    let cmd = format!(
+                        r#"{s}tar -czf {backup} -C "$(dirname {remote})" "$(basename {remote})" 2>&1"#,
+                        s = s,
+                        backup = shell_quote(backup),
+                        remote = shell_quote(&remote)
+                    );
+                    let (code, out, err) = exec_command(&mut conn.handle, &cmd, 120_000)
+                        .await
+                        .map_err(|e| internal_err(e.to_string()))?;
+                    results.push(format!(
+                        "pre-deploy backup (exit {}):\n{}",
+                        code,
+                        if out.is_empty() { &err } else { &out }
+                    ));
+                }
 
                 // Upload files via SFTP
                 let channel = conn
@@ -418,7 +424,7 @@ $(apt-get -s dist-upgrade 2>/dev/null | grep '^Inst' | grep -i securi | awk '{{p
                 return Err(invalid_err(format!(
                     "Invalid action '{}'. Use: deploy|backup|restore",
                     other
-                )))
+                )));
             }
         }
 
@@ -427,16 +433,16 @@ $(apt-get -s dist-upgrade 2>/dev/null | grep '^Inst' | grep -i securi | awk '{{p
         )]))
     }
 
-    #[tool(description = "Manage the UFW firewall on Ubuntu. Actions: enable, disable, status, allow, deny, delete, reset. Use port and protocol for port rules; use from for IP-based allow rules.")]
+    #[tool(
+        description = "Manage the UFW firewall on Ubuntu. Actions: enable, disable, status, allow, deny, delete, reset. Use port and protocol for port rules; use from for IP-based allow rules."
+    )]
     async fn ubuntu_ufw_firewall(
         &self,
         Parameters(params): Parameters<FirewallParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let conn_arc = self
-            .pool
-            .get(&params.connection_id)
-            .await
-            .ok_or_else(|| invalid_err(format!("No active connection: '{}'", params.connection_id)))?;
+        let conn_arc = self.pool.get(&params.connection_id).await.ok_or_else(|| {
+            invalid_err(format!("No active connection: '{}'", params.connection_id))
+        })?;
 
         let s = if params.sudo { "sudo " } else { "" };
 
@@ -457,7 +463,7 @@ $(apt-get -s dist-upgrade 2>/dev/null | grep '^Inst' | grep -i securi | awk '{{p
                 _ => {
                     return Err(invalid_err(
                         "allow action requires 'port' or 'from' parameter",
-                    ))
+                    ));
                 }
             },
 
@@ -481,7 +487,7 @@ $(apt-get -s dist-upgrade 2>/dev/null | grep '^Inst' | grep -i securi | awk '{{p
                 return Err(invalid_err(format!(
                     "Invalid action '{}'. Use: enable|disable|status|allow|deny|delete|reset",
                     other
-                )))
+                )));
             }
         };
 

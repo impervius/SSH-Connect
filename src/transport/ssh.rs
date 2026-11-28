@@ -11,7 +11,7 @@ use crate::ssh_config::{self, Credentials};
 use async_trait::async_trait;
 use russh::client::{self, Handle, Msg};
 use russh::keys::{Algorithm, EcdsaCurve, HashAlg, PublicKeyOrCertificate};
-use russh::{cipher, kex, Channel, ChannelMsg, Disconnect, Preferred};
+use russh::{Channel, ChannelMsg, Disconnect, Preferred, cipher, kex};
 use russh_sftp::client::SftpSession;
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
@@ -42,10 +42,18 @@ fn legacy_compatible_preferred() -> Preferred {
         ]),
         key: Cow::Borrowed(&[
             Algorithm::Ed25519,
-            Algorithm::Ecdsa { curve: EcdsaCurve::NistP256 },
-            Algorithm::Ecdsa { curve: EcdsaCurve::NistP521 },
-            Algorithm::Rsa { hash: Some(HashAlg::Sha256) },
-            Algorithm::Rsa { hash: Some(HashAlg::Sha512) },
+            Algorithm::Ecdsa {
+                curve: EcdsaCurve::NistP256,
+            },
+            Algorithm::Ecdsa {
+                curve: EcdsaCurve::NistP521,
+            },
+            Algorithm::Rsa {
+                hash: Some(HashAlg::Sha256),
+            },
+            Algorithm::Rsa {
+                hash: Some(HashAlg::Sha512),
+            },
             // Legacy fallback: SHA-1-signed RSA host keys (only host-key type
             // old IOS-XE presents) — `ssh-rsa`.
             Algorithm::Rsa { hash: None },
@@ -147,9 +155,10 @@ impl SshTransport {
 
         tracing::debug!(host = auth.host, auth = %used, "ssh authenticated");
 
-        let channel = handle.channel_open_session().await.map_err(|e| {
-            ToolError::internal(format!("open ssh session channel: {e}"))
-        })?;
+        let channel = handle
+            .channel_open_session()
+            .await
+            .map_err(|e| ToolError::internal(format!("open ssh session channel: {e}")))?;
         channel
             .request_pty(false, "xterm", 200, 50, 0, 0, &[])
             .await
@@ -159,7 +168,11 @@ impl SshTransport {
             .await
             .map_err(|e| ToolError::internal(format!("request shell: {e}")))?;
 
-        Ok(Self { handle, channel, closed: false })
+        Ok(Self {
+            handle,
+            channel,
+            closed: false,
+        })
     }
 
     /// Open a fresh SFTP session on a side channel of the same connection.
@@ -240,7 +253,10 @@ impl Transport for SshTransport {
             )
         })?;
         let mut dst = sftp.create(remote).await.map_err(|e| {
-            ToolError::new(ErrorKind::TransferFailed, format!("create remote '{remote}': {e}"))
+            ToolError::new(
+                ErrorKind::TransferFailed,
+                format!("create remote '{remote}': {e}"),
+            )
         })?;
         let n = tokio::io::copy(&mut src, &mut dst)
             .await
@@ -254,7 +270,10 @@ impl Transport for SshTransport {
     async fn download_file(&mut self, remote: &str, local: &Path) -> ToolResult<u64> {
         let sftp = self.sftp().await?;
         let mut src = sftp.open(remote).await.map_err(|e| {
-            ToolError::new(ErrorKind::TransferFailed, format!("open remote '{remote}': {e}"))
+            ToolError::new(
+                ErrorKind::TransferFailed,
+                format!("open remote '{remote}': {e}"),
+            )
         })?;
         let mut dst = tokio::fs::File::create(local).await.map_err(|e| {
             ToolError::new(
@@ -262,12 +281,12 @@ impl Transport for SshTransport {
                 format!("create local file '{}': {e}", local.display()),
             )
         })?;
-        let n = tokio::io::copy(&mut src, &mut dst)
-            .await
-            .map_err(|e| ToolError::new(ErrorKind::TransferFailed, format!("download copy: {e}")))?;
-        dst.flush()
-            .await
-            .map_err(|e| ToolError::new(ErrorKind::TransferFailed, format!("download flush: {e}")))?;
+        let n = tokio::io::copy(&mut src, &mut dst).await.map_err(|e| {
+            ToolError::new(ErrorKind::TransferFailed, format!("download copy: {e}"))
+        })?;
+        dst.flush().await.map_err(|e| {
+            ToolError::new(ErrorKind::TransferFailed, format!("download flush: {e}"))
+        })?;
         Ok(n)
     }
 }

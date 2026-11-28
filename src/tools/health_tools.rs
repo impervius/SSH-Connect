@@ -13,17 +13,14 @@
 //!     (`|` is used as the inner separator so domain names containing dots are safe.)
 
 use rmcp::{
-    ErrorData,
-    handler::server::wrapper::Parameters,
-    model::CallToolResult,
-    tool, tool_router,
+    ErrorData, handler::server::wrapper::Parameters, model::CallToolResult, tool, tool_router,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::server::SshConnectServer;
-use crate::state::{exec_command, SshConnection};
+use crate::state::{SshConnection, exec_command};
 use crate::tools::util::json_result;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -63,7 +60,9 @@ fn parse_lines(raw: &str) -> Map<String, Value> {
 
     for line in raw.lines() {
         let line = line.trim();
-        let Some((lhs, val)) = line.split_once('=') else { continue };
+        let Some((lhs, val)) = line.split_once('=') else {
+            continue;
+        };
         let val = val.trim();
         if let Some(name) = lhs.strip_prefix("svc|") {
             services.insert(name.to_string(), Value::String(val.to_string()));
@@ -105,18 +104,19 @@ fn num_or_str(v: &str) -> Value {
 
 #[tool_router(router = health_tool_router, vis = "pub(crate)")]
 impl SshConnectServer {
-    #[tool(description = "Run the standard VPS health battery over an existing ssh_connect connection and return structured JSON across system, security, ssl_web, and maintenance. Pair with the vps-health-report skill to score and render an HTML report. Optional: domains[] (else derived from certbot), categories[] to limit scope.")]
+    #[tool(
+        description = "Run the standard VPS health battery over an existing ssh_connect connection and return structured JSON across system, security, ssl_web, and maintenance. Pair with the vps-health-report skill to score and render an HTML report. Optional: domains[] (else derived from certbot), categories[] to limit scope."
+    )]
     async fn vps_health_check(
         &self,
         Parameters(params): Parameters<HealthCheckParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let conn_arc = self
-            .pool
-            .get(&params.connection_id)
-            .await
-            .ok_or_else(|| invalid_err(format!("No active connection: '{}'", params.connection_id)))?;
+        let conn_arc = self.pool.get(&params.connection_id).await.ok_or_else(|| {
+            invalid_err(format!("No active connection: '{}'", params.connection_id))
+        })?;
 
-        let want = |c: &str| params.categories.is_empty() || params.categories.iter().any(|x| x == c);
+        let want =
+            |c: &str| params.categories.is_empty() || params.categories.iter().any(|x| x == c);
         let mut conn = conn_arc.lock().await;
         let mut report = Map::new();
 
@@ -144,11 +144,27 @@ done
             };
             sys.insert(
                 "failed_units_detail".into(),
-                Value::String(run(&mut conn, "systemctl --failed --no-legend --plain 2>/dev/null || true", 15_000).await.unwrap_or_default()),
+                Value::String(
+                    run(
+                        &mut conn,
+                        "systemctl --failed --no-legend --plain 2>/dev/null || true",
+                        15_000,
+                    )
+                    .await
+                    .unwrap_or_default(),
+                ),
             );
             sys.insert(
                 "top_processes".into(),
-                Value::String(run(&mut conn, "ps -eo pcpu,pmem,comm --sort=-pcpu 2>/dev/null | head -6", 15_000).await.unwrap_or_default()),
+                Value::String(
+                    run(
+                        &mut conn,
+                        "ps -eo pcpu,pmem,comm --sort=-pcpu 2>/dev/null | head -6",
+                        15_000,
+                    )
+                    .await
+                    .unwrap_or_default(),
+                ),
             );
             report.insert("system".into(), Value::Object(sys));
         }
@@ -209,7 +225,15 @@ echo "reboot_required=$(test -f /var/run/reboot-required && echo true || echo fa
             };
             maint.insert(
                 "reboot_pkgs".into(),
-                Value::String(run(&mut conn, "cat /var/run/reboot-required.pkgs 2>/dev/null | tr '\\n' ' '", 10_000).await.unwrap_or_default()),
+                Value::String(
+                    run(
+                        &mut conn,
+                        "cat /var/run/reboot-required.pkgs 2>/dev/null | tr '\\n' ' '",
+                        10_000,
+                    )
+                    .await
+                    .unwrap_or_default(),
+                ),
             );
             maint.insert(
                 "recent_errors".into(),

@@ -131,7 +131,10 @@ impl TelnetTransport {
                         format!("telnet connect to {target}: {e}"),
                     )
                 })?;
-        Ok(Self { stream, parser: IacParser::new() })
+        Ok(Self {
+            stream,
+            parser: IacParser::new(),
+        })
     }
 }
 
