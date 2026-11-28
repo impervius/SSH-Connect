@@ -3,29 +3,13 @@ use std::sync::Arc;
 use rmcp::{
     ServerHandler,
     handler::server::router::tool::ToolRouter,
-    handler::server::tool::ToolCallContext,
-    model::*,
-    service::RequestContext,
+    model::{Implementation, ServerCapabilities, ServerConfig},
     tool_handler,
-    RoleServer,
 };
 
 use crate::config::Inventory;
 use crate::state::ConnectionPool;
 use crate::transport::SessionManager;
-
-/// The broker role this process plays (see [`crate::broker`]).
-///
-/// An **Owner** holds the live connections and dispatches tool calls locally; a
-/// **Proxy** forwards every `tools/call` to the owner over a named pipe so all
-/// MCP clients share one set of sessions / COM ports. Tool *schemas* are
-/// identical across processes, so `tools/list` always answers locally.
-#[derive(Clone)]
-pub enum ServerRole {
-    Owner,
-    #[cfg(any(windows, unix))]
-    Proxy(rmcp::Peer<rmcp::RoleClient>),
-}
 
 /// The MCP server struct. Must be Clone — every field is Arc-backed.
 ///
@@ -41,7 +25,6 @@ pub struct SshConnectServer {
     pub pool: ConnectionPool,
     pub sessions: SessionManager,
     pub inventory: Arc<Inventory>,
-    pub role: ServerRole,
     pub(crate) tool_router: ToolRouter<SshConnectServer>,
 }
 
@@ -60,26 +43,12 @@ impl SshConnectServer {
             + Self::switch_tool_router()
     }
 
-    /// Build an Owner server with fresh local state.
+    /// Build a server with fresh local state.
     pub fn new() -> Self {
         Self {
             pool: ConnectionPool::new(),
             sessions: SessionManager::new(),
             inventory: Arc::new(Inventory::load_default()),
-            role: ServerRole::Owner,
-            tool_router: Self::build_router(),
-        }
-    }
-
-    /// Build a Proxy server that forwards tool calls to the broker owner over
-    /// the given client peer. Local state stays empty (unused).
-    #[cfg(any(windows, unix))]
-    pub fn new_proxy(peer: rmcp::Peer<rmcp::RoleClient>) -> Self {
-        Self {
-            pool: ConnectionPool::new(),
-            sessions: SessionManager::new(),
-            inventory: Arc::new(Inventory::load_default()),
-            role: ServerRole::Proxy(peer),
             tool_router: Self::build_router(),
         }
     }
@@ -90,35 +59,6 @@ impl SshConnectServer {
 /// We provide get_info() manually so the macro skips auto-generation.
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for SshConnectServer {
-    /// Broker-aware dispatch. An Owner runs the tool against its live
-    /// connections; a Proxy forwards the whole `tools/call` to the owner over
-    /// the named pipe so sessions are shared across all MCP clients.
-    async fn call_tool(
-        &self,
-        request: CallToolRequestParams,
-        context: RequestContext<RoleServer>,
-    ) -> Result<CallToolResponse, ErrorData> {
-        match &self.role {
-            ServerRole::Owner => {
-                let tcc = ToolCallContext::new(self, request, context);
-                self.tool_router.call(tcc).await
-            }
-            #[cfg(any(windows, unix))]
-            ServerRole::Proxy(peer) => {
-                // Forward exactly one round. `Peer::call_tool` would drive any
-                // SEP-2322 input-required round itself through this process's
-                // unit ClientHandler; `call_tool_once` instead relays the
-                // InputRequired/Task envelope to the real downstream client.
-                peer.call_tool_once(request).await.map_err(|e| {
-                    ErrorData::internal_error(
-                        format!("broker proxy call failed: {e}"),
-                        None,
-                    )
-                })
-            }
-        }
-    }
-
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(
             ServerCapabilities::builder()

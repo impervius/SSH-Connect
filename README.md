@@ -13,8 +13,7 @@ earlier Rust projects into one binary:
   transfer uses SFTP; optional trust-on-first-use host-key checking is available.
 - **Interactive console** — prompt-aware management of switches, routers, and consoles
   over SSH (PTY), Telnet, and Serial, with pagination handling, enable/login flows, and
-  fleet commands. A broker (Windows named pipe / Unix domain socket) lets multiple MCP
-  clients share one set of live sessions and serial ports.
+  fleet commands.
 
 Built on the `rmcp` MCP SDK. SSH is pure Rust via `russh` (no OpenSSL/C dependency).
 
@@ -29,8 +28,8 @@ toolchain required to run them.
 | Linux/VPS administration with exit codes | server-ops | `ssh_connect` | `ssh_exec`, `vps_*`, `ubuntu_*` |
 | Switches, routers, consoles, serial | interactive console | `connect` | `run_command`, `enable`, `login`, etc. |
 
-Both families run in one process and share the broker, so a session opened by one MCP
-client is usable from another.
+Both families run in one process and share the same session registry, so a connection
+opened for one tool is available to the others.
 
 ## Tools
 
@@ -73,7 +72,7 @@ relying on a long timeout (see the `vps-management` skill).
 
 ## Build
 
-Requires a recent stable Rust toolchain. Rust dependencies (including `rmcp = "1.8"`
+Requires a recent stable Rust toolchain. Rust dependencies (including `rmcp = "3.9"`
 from crates.io) are fetched by Cargo.
 
 ```sh
@@ -114,7 +113,7 @@ Or in an MCP settings file:
 ```
 
 The server speaks MCP over stdio; all logging goes to stderr (set `RUST_LOG=info` to see
-broker/role messages).
+server messages).
 
 ## Configuration
 
@@ -140,20 +139,6 @@ broker/role messages).
   RSA identities are signed with the strongest hash the server advertises, so agent auth
   also works against OpenSSH 8.8+, which rejects SHA-1 `ssh-rsa`.
 
-## Broker (multi-instance session sharing)
-
-The first instance becomes the owner of a per-machine rendezvous endpoint — a named
-pipe (`\\.\pipe\ssh-connect-broker-v1`) on Windows, or a Unix domain socket under
-`$XDG_RUNTIME_DIR` (falling back to the temp dir) on Linux/macOS — and holds the live
-connections and COM ports. Later instances act as proxies that forward `tools/call` to
-the owner, so a session opened in one client is usable from another and two clients
-cannot collide on the same serial port. Tool schemas are served locally by every
-instance. On a platform with neither transport, each instance is a standalone owner.
-
-Limitation: if the owner process exits, existing proxies do not currently re-elect a new
-owner mid-session — restart the affected client. A newly started instance always elects
-correctly (and clears a stale socket).
-
 ## Tests
 
 ```sh
@@ -162,8 +147,8 @@ cargo test --bin ssh-connect
 
 Unit tests cover the telnet IAC parser, prompt/ANSI output handling, the host inventory,
 `ssh -G` alias resolution, serial-port probing, and the legacy SSH algorithm set.
-Protocol and broker behavior are checked by sending an `initialize` + `tools/list`
-sequence to the binary and by running two instances to confirm owner/proxy election.
+Protocol behavior is checked by sending an `initialize` + `tools/list` sequence to the
+binary.
 
 ## License
 

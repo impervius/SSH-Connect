@@ -405,8 +405,8 @@ pub async fn read_until_prompt(
         // Sub-prompt detection (only on the command path): if the device is
         // waiting at a Password:/[confirm]/--More-- prompt, return now rather
         // than burning the whole timeout waiting for a CLI prompt.
-        if anchor_tail {
-            if let Some(m) = subprompt_re().find(&tail) {
+        if anchor_tail
+            && let Some(m) = subprompt_re().find(&tail) {
                 return Ok(ReadOutcome {
                     output: cleaned,
                     matched_prompt: None,
@@ -415,7 +415,6 @@ pub async fn read_until_prompt(
                     truncated: false,
                 });
             }
-        }
     }
 }
 
@@ -464,11 +463,10 @@ pub fn clean_output(cleaned: &str, command: &str, strip_prompt: bool) -> String 
     let mut lines: Vec<&str> = cleaned.split('\n').collect();
 
     // Remove a leading echoed command line.
-    if let Some(first) = lines.first() {
-        if first.trim() == command.trim() {
+    if let Some(first) = lines.first()
+        && first.trim() == command.trim() {
             lines.remove(0);
         }
-    }
 
     if strip_prompt {
         // Remove the trailing prompt line the device re-displayed. read_until_prompt

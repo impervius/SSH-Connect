@@ -290,13 +290,12 @@ impl SshConnectServer {
             .await
             .map_err(|e| internal_err(format!("Read failed: {e}")))?;
 
-        if let Some(parent) = Path::new(&params.local_path).parent() {
-            if !parent.as_os_str().is_empty() {
+        if let Some(parent) = Path::new(&params.local_path).parent()
+            && !parent.as_os_str().is_empty() {
                 tokio::fs::create_dir_all(parent)
                     .await
                     .map_err(|e| internal_err(format!("Cannot create local dir: {e}")))?;
             }
-        }
 
         tokio::fs::write(&params.local_path, &buf)
             .await

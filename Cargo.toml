@@ -1,7 +1,7 @@
 [package]
 name = "ssh-connect"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "SSH-Connect — unified SSH/Telnet/Serial console + VPS/Ubuntu management as an MCP server (Rust)"
 license = "MIT"
 
@@ -13,7 +13,6 @@ path = "src/main.rs"
 rmcp = {
   version = "3.9",
   features = [
-    "client",
     "macros",
     "server",
     "transport-io",

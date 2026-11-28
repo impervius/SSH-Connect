@@ -78,8 +78,8 @@ impl russh::client::Handler for VpsClientHandler {
                 if line.is_empty() || line.starts_with('#') {
                     continue;
                 }
-                if let Some((stored_id, stored_key)) = line.split_once(' ') {
-                    if stored_id == id {
+                if let Some((stored_id, stored_key)) = line.split_once(' ')
+                    && stored_id == id {
                         if stored_key.trim() == key_line {
                             return Ok(true);
                         }
@@ -91,7 +91,6 @@ impl russh::client::Handler for VpsClientHandler {
                         );
                         return Ok(false);
                     }
-                }
             }
         }
 
@@ -192,7 +191,7 @@ pub async fn exec_command(
             Ok(Some(russh::ChannelMsg::Data { ref data })) => {
                 stdout.push_str(&String::from_utf8_lossy(data));
             }
-            Ok(Some(russh::ChannelMsg::ExtendedData { ref data, ext })) if ext == 1 => {
+            Ok(Some(russh::ChannelMsg::ExtendedData { ref data, ext: 1 })) => {
                 stderr.push_str(&String::from_utf8_lossy(data));
             }
             Ok(Some(russh::ChannelMsg::ExitStatus { exit_status })) => {

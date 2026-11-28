@@ -18,7 +18,7 @@ same look, same sections, same scoring logic, every time.
 
 1. **Resolve the target.** Device name + how to reach it (serial port / SSH/Telnet
    host, credentials). If a SSH-Connect session is already open to it, the agent will
-   reuse it — sessions are shared via the broker.
+   reuse it — sessions persist for the lifetime of the MCP server process.
 2. **Find the baseline.** Newest `reports/<HOST>-health-*.json` for this hostname
    (match loosely on the device's short name). If found → delta mode; pass its path.
 3. **Spawn ONE general-purpose agent** with a prompt containing, verbatim:

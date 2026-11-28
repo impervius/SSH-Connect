@@ -275,7 +275,7 @@ async fn agent_auth<H: Handler>(
                 certificate,
                 comment,
             } => (
-                PublicKey::try_from(certificate.public_key().clone()).ok(),
+                Some(PublicKey::from(certificate.public_key().clone())),
                 comment.clone(),
             ),
         };

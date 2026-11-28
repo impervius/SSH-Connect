@@ -2,7 +2,6 @@ use anyhow::Result;
 use rmcp::{ServiceExt, transport::stdio};
 use tracing_subscriber::{EnvFilter, fmt};
 
-mod broker;
 mod config;
 mod discovery;
 mod error;
@@ -12,7 +11,6 @@ mod state;
 mod tools;
 mod transport;
 
-use broker::Election;
 use server::SshConnectServer;
 
 #[tokio::main]
@@ -26,18 +24,7 @@ async fn main() -> Result<()> {
 
     tracing::info!("Starting SSH-Connect MCP Server");
 
-    // Elect a broker role so multiple instances share one set of live sessions.
-    let server = match broker::elect().await {
-        #[cfg(any(windows, unix))]
-        Election::Owner(listener) => {
-            let owner = SshConnectServer::new();
-            tokio::spawn(broker::serve_owner(listener, owner.clone()));
-            owner
-        }
-        #[cfg(any(windows, unix))]
-        Election::Proxy(peer) => SshConnectServer::new_proxy(peer),
-        Election::OwnerLocal => SshConnectServer::new(),
-    };
+    let server = SshConnectServer::new();
 
     let service = server
         .serve(stdio())

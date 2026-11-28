@@ -13,8 +13,8 @@ interactive console tools (`connect`, `run_command`, `enable`, `run_on_fleet`,
 - **Read-only.** Auditing never changes device config. Capture and analyze only.
 - **Back up first, always.** Begin with `switch_backup_config { session, save_to }`
   so every audit has an artifact and a baseline for future drift comparison.
-- **Reuse sessions.** They're shared across windows via the broker; don't reconnect
-  per command. Disable paging once (`terminal length 0`) at the start.
+- **Reuse sessions.** They persist for the lifetime of the MCP server process; don't
+  reconnect per command. Disable paging once (`terminal length 0`) at the start.
 
 ## Procedure
 

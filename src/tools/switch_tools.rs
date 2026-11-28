@@ -160,12 +160,11 @@ impl SshConnectServer {
             }
         };
         let mut command = format!("{verb} {}", params.target);
-        if let Some(extra) = &params.args {
-            if !extra.trim().is_empty() {
+        if let Some(extra) = &params.args
+            && !extra.trim().is_empty() {
                 command.push(' ');
                 command.push_str(extra.trim());
             }
-        }
         let timeout = Duration::from_secs(params.timeout_secs.unwrap_or(60));
 
         let handle = self.sessions.get(&params.session).await?;

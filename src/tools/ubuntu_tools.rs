@@ -375,8 +375,8 @@ $(apt-get -s dist-upgrade 2>/dev/null | grep '^Inst' | grep -i securi | awk '{{p
                     .ok_or_else(|| invalid_err("'remotePath' required for deploy action"))?;
 
                 // Optional pre-deploy backup
-                if params.create_backup {
-                    if let Some(ref backup) = params.backup_path {
+                if params.create_backup
+                    && let Some(ref backup) = params.backup_path {
                         let cmd = format!(
                             r#"{s}tar -czf {backup} -C "$(dirname {remote})" "$(basename {remote})" 2>&1"#,
                             s = s,
@@ -392,7 +392,6 @@ $(apt-get -s dist-upgrade 2>/dev/null | grep '^Inst' | grep -i securi | awk '{{p
                             if out.is_empty() { &err } else { &out }
                         ));
                     }
-                }
 
                 // Upload files via SFTP
                 let channel = conn

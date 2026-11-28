@@ -46,10 +46,9 @@ Serial conveniences on `connect`:
 - `wake: true` sends a carriage return on connect and returns the banner/prompt,
   so you don't need a manual nudge.
 
-Sessions persist across tool calls **and are shared across all Claude windows**
-(single-owner broker). Reuse the session `name`; don't reconnect for every command.
-A second `connect` with a name that's already open returns "session exists" — that's
-the shared session, just use it.
+Sessions persist across tool calls for the lifetime of the MCP server process. Reuse
+the session `name`; don't reconnect for every command. A second `connect` with a name
+that's already open returns "session exists" — that's the existing session, just use it.
 
 ## Disabling pagination first
 

@@ -10,7 +10,7 @@
 //!   - `svc|NAME=STATE`          → a systemd service state
 //!   - `cert|DOMAIN=DAYS`        → days until a cert expires
 //!   - `http|DOMAIN=CODE`        → HTTP status for a vhost
-//! (`|` is used as the inner separator so domain names containing dots are safe.)
+//!     (`|` is used as the inner separator so domain names containing dots are safe.)
 
 use rmcp::{
     ErrorData,
